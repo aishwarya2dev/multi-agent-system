@@ -536,6 +536,6 @@ def search_flights(query: str, limit: int = 10):
 
 
 if __name__ == "__main__":
-    print(search_flights("Plan a 7 days Japan trip from Bangladesh"))
-    print("\n" + "=" * 80 + "\n")
-    print(search_flights("all country flight info"))
+    print(search_flights("Provide flights from Delhi to Tokyo on 2026-08-15"))
+    # print("\n" + "=" * 80 + "\n")
+    # print(search_flights("all country flight info"))
