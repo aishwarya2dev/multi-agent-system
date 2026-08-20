@@ -733,6 +733,8 @@ travel_graph = graph.compile(
     interrupt_before=["human_approval"],
 )
 
+HITL_BUILD_VERSION = "hitl-explicit-pause-2026-08-20"
+
 
 # =========================
 # FastAPI-facing helpers
@@ -766,6 +768,7 @@ def _serialize_result(
 
     return {
         "thread_id": thread_id,
+        "hitl_build": HITL_BUILD_VERSION,
         "answer": answer,
         "requires_approval": requires_approval or interrupt_payload is not None,
         "approval_request": (
