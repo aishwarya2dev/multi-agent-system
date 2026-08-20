@@ -70,9 +70,11 @@ async def travel_planner(request_data: TravelRequest):
                 },
             )
 
+        # A new /api/travel request should always start a fresh LangGraph
+        # thread. Reusing a browser-cached thread_id can attach the request to
+        # an old deployed Postgres checkpoint and skip the intended HITL pause.
         result = run_travel_agent(
             user_input=user_message,
-            thread_id=request_data.thread_id,
         )
 
         return JSONResponse(

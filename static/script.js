@@ -1,4 +1,4 @@
-let currentThreadId = localStorage.getItem("travel_thread_id") || null;
+let currentThreadId = null;
 let latestAnswerMarkdown = "";
 let waitingForApproval = false;
 
@@ -153,7 +153,6 @@ async function sendMessage() {
     }
 
     currentThreadId = data.thread_id;
-    localStorage.setItem("travel_thread_id", currentThreadId);
 
     showWorkflow(data);
 
@@ -211,6 +210,7 @@ async function submitApproval(approved) {
 
     showWorkflow(data);
     hideApproval();
+    currentThreadId = null;
     showResult(data.answer, data.thread_id, false);
   } catch (error) {
     showError(error.message);
