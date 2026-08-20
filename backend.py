@@ -728,7 +728,10 @@ _conn = psycopg.connect(
 checkpointer = PostgresSaver(_conn)
 checkpointer.setup()
 
-travel_graph = graph.compile(checkpointer=checkpointer)
+travel_graph = graph.compile(
+    checkpointer=checkpointer,
+    interrupt_before=["human_approval"],
+)
 
 
 # =========================
@@ -747,13 +750,16 @@ def _interrupt_payload(result: dict[str, Any]) -> dict[str, Any] | None:
 def _serialize_result(
     result: dict[str, Any],
     thread_id: str,
+    requires_approval: bool = False,
 ) -> dict[str, Any]:
     messages = result.get("messages", [])
     last_message = messages[-1].content if messages else ""
     answer = result.get("final_response") or last_message
     interrupt_payload = _interrupt_payload(result)
 
-    if interrupt_payload:
+    if requires_approval:
+        answer = result.get("itinerary", "") or answer
+    elif interrupt_payload:
         answer = interrupt_payload.get("draft_itinerary") or result.get(
             "itinerary", ""
         )
@@ -761,8 +767,11 @@ def _serialize_result(
     return {
         "thread_id": thread_id,
         "answer": answer,
-        "requires_approval": interrupt_payload is not None,
+        "requires_approval": requires_approval or interrupt_payload is not None,
         "approval_request": (
+            result.get("approval_request", "")
+            if requires_approval
+            else
             interrupt_payload.get("approval_request", "")
             if interrupt_payload
             else result.get("approval_request", "")
@@ -772,6 +781,9 @@ def _serialize_result(
         "weather_results": result.get("weather_results", ""),
         "budget_results": result.get("budget_results", ""),
         "itinerary": (
+            result.get("itinerary", "")
+            if requires_approval
+            else
             interrupt_payload.get("draft_itinerary", "")
             if interrupt_payload
             else result.get("itinerary", "")
@@ -817,7 +829,10 @@ def run_travel_agent(user_input: str, thread_id: str | None = None):
         config=config,
     )
 
-    return _serialize_result(result, thread_id)
+    snapshot = travel_graph.get_state(config)
+    requires_approval = "human_approval" in snapshot.next
+
+    return _serialize_result(result, thread_id, requires_approval=requires_approval)
 
 
 def resume_travel_agent(
@@ -830,14 +845,15 @@ def resume_travel_agent(
         raise ValueError("thread_id is required to resume a travel plan.")
 
     config = {"configurable": {"thread_id": thread_id}}
-    result = travel_graph.invoke(
-        Command(
-            resume={
-                "approved": approved,
-                "feedback": feedback.strip(),
-            }
-        ),
-        config=config,
+    updated_config = travel_graph.update_state(
+        config,
+        {
+            "approved": approved,
+            "human_feedback": feedback.strip(),
+            "messages": [AIMessage(content="Human approval step completed.")],
+        },
+        as_node="human_approval",
     )
+    result = travel_graph.invoke(None, config=updated_config)
 
     return _serialize_result(result, thread_id)
